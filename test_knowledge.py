@@ -5,6 +5,67 @@ import knowledge_base as kb
 
 
 class DatasetTests(unittest.TestCase):
+    def test_appendix_b_question_set(self):
+        cases = json.loads((Path(__file__).with_name('appendix_b_questions.json')).read_text(encoding='utf-8'))
+        self.assertEqual(len(cases), 110)
+        # ตรวจจากเนื้อหาตำราจริง: บางข้อในตารางระบุบทไม่ตรงกับตำแหน่งนิยามในเล่ม
+        topic_overrides = {7: '2.2 ', 11: '12.4 ', 13: '3.3 ', 14: '4.6 ', 21: '8.1 ', 96: '11.5 '}
+        # ตารางจัดเป็นคำถามในขอบเขต แต่ handbook ที่แชทบอตใช้อยู่ไม่มีเนื้อหาอธิบายหัวข้อเหล่านี้
+        absent_from_handbook = {71, 73, 75}
+        for case in cases:
+            qid, query, scope = case['id'], case['question'], case['scope']
+            with self.subTest(id=qid, query=query):
+                answer = kb.answer_from_dataset([{'role': 'user', 'content': query}])
+                topics = [line[3:] for line in answer.splitlines() if line.startswith('## ')]
+                if qid in absent_from_handbook or (scope != 'ในขอบเขต' and qid != 96):
+                    self.assertEqual(answer, kb.NO_DATA)
+                    continue
+                chapter = topic_overrides.get(qid, case['chapter'])
+                if qid == 96:  # Machine Learning มีเนื้อหาจริงในหัวข้อ 11.5 แม้ตารางจัดเป็นนอกขอบเขต
+                    chapter = '11.5 '
+                self.assertTrue(topics, f'คำถามในตำราได้ NO_DATA: {query}')
+                self.assertTrue(any(t.startswith(chapter + '.') or t.startswith(chapter)
+                                    or t.startswith('บทที่ ' + chapter + ' ') for t in topics),
+                                f'ต้องการบท {chapter}, ได้ {topics}')
+                self.assertTrue(any(line.startswith('แหล่งข้อมูล:') for line in answer.splitlines()))
+
+    def test_natural_language_questions_from_user_test_set(self):
+        # คำถามที่ใช้ทดสอบ chatbot: ต้องค้นเจอหัวข้อที่ถูกต้องและแสดงหลักฐานจากตำรา
+        cases = [
+            ('สารสนเทศคืออะไร', '1.1 ', ['สารสนเทศ (Information) หมายถึง']),
+            ('ข้อมูลกับสารสนเทศต่างกันอย่างไร', '1.1 ', ['ข้อมูล หมายถึง', 'สารสนเทศ คือข้อมูลที่ผ่านการประมวลผล']),
+            ('สารสนเทศที่ดีควรมีคุณสมบัติอะไรบ้าง', '1.1 ',
+             ['มีความถูกต้องรวดเร็วและเป็นปัจจุบัน', 'มีความสมบูรณ์ของข้อมูล', 'สอดคล้องกับความต้องการ']),
+            ('ข้อมูลวันที่และเวลามีตัวอย่างอะไรบ้าง', '1.2 ', ['วันเกิด', 'วันที่ซื้อสินค้า']),
+            ('ข้อมูลเสียงใช้เก็บข้อมูลแบบใด', '1.2 ', ['เพลง', 'การสัมภาษณ์', 'การตรวจคลื่นหัวใจ']),
+            ('ทำไมการเก็บข้อมูลแยกแฟ้มจึงทำให้รวบรวมข้อมูลล่าช้า', '1.6 ข้อจำกัดของวิธีแฟ้มข้อมูล · 1.',
+             ['รวบรวมข้อมูลเกิดความล่าช้า', 'ความล่าช้าในการประมวลผล']),
+            ('ถ้าต้องการระบุข้อมูลแต่ละแถวในตาราง ควรใช้คีย์อะไร', '4.5 ประเภทของคีย์ · 3.',
+             ['คีย์หลัก (Primary Key)', 'ระบุค่าในแต่ละแถวไม่ให้ซ้ำกัน']),
+            ('คีย์นอกมีไว้ทำอะไร', '4.5 ประเภทของคีย์ · 4.', ['คีย์นอก (Foreign Key)', 'ความสัมพันธ์ของตาราง']),
+            ('ซุปเปอร์คีย์กับคีย์คู่แข่งต่างกันอย่างไร', '4.5 ประเภทของคีย์ · 1.',
+             ['ซุปเปอร์คีย์ (Super Key)', 'คีย์คู่แข่ง (Candidate Key)']),
+            ('คีย์ประกอบคืออะไร', '4.5 ประเภทของคีย์ · 5.', ['คีย์ประกอบ (Composite Key)', 'ตั้งแต่ 2 ฟิลด์ขึ้นไป']),
+            ('ใน Microsoft Access ควรใช้ชนิดข้อมูลใดเก็บวันและเวลา', '8.2 ', ['DATE/TIME', 'วันที่และเวลา']),
+            ('ชนิดข้อมูล Yes/No ใช้เก็บข้อมูลแบบใด', '8.2 ', ['YES/NO', 'ข้อมูลเชิงตรรกะ']),
+            ('SQL ประเภท DDL ใช้ทำอะไร', '8.1 ', ['Data Definition Language: DDL', 'นิยามโครงสร้าง']),
+            ('SQL มีกี่ประเภท และมีอะไรบ้าง', '8.1 ',
+             ['Data Definition Language: DDL', 'Data Manipulation Language: DML', 'Data Control Language: DCL']),
+        ]
+        for query, expected_topic, expected_text in cases:
+            with self.subTest(query=query):
+                found = kb.search(query, 6)
+                self.assertTrue(found, f'ไม่พบหัวข้อสำหรับ {query}')
+                self.assertTrue(found[0]['topic'].startswith(expected_topic),
+                                [e['topic'] for e in found])
+                answer = kb.answer_from_dataset([{'role': 'user', 'content': query}])
+                for phrase in expected_text:
+                    self.assertIn(phrase, answer)
+                self.assertIn('แหล่งข้อมูล:', answer)
+        # คำถามเรื่องชนิดข้อมูลเฉพาะใน Access ต้องไม่พ่วงหัวข้อชนิดข้อมูลทั่วไปของบท 1
+        self.assertEqual([e['topic'] for e in kb.search('ชนิดข้อมูล Yes/No ใช้เก็บข้อมูลแบบใด')],
+                         ['8.2 ชนิดของข้อมูล'])
+
     def test_retrieval(self):
         for query, expected in [('COUNT()', 'Aggregate'), ('GROUP BY', 'GROUP BY'), ('HAVING', 'GROUP BY'),
                                 ('LEFT JOIN', 'LEFT JOIN'), ('คีย์หลักคืออะไร', 'Primary Key'),

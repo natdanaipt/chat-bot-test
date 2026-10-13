@@ -220,7 +220,11 @@ def _data_type_topics(query):
     if not re.search(r"(?:ชนิด|ประเภท)\s*(?:ของ\s*)?ข้อมูล|ข้อมูล\s*(?:ชนิด|ประเภท)|data\s+types?", text):
         return []
     general = re.search(r"\b1\.2\b|บทที่\s*1(?!\d)|ทั่วไป|พื้นฐาน|เบื้องต้น", text)
-    access = re.search(r"\b8\.2\b|บทที่\s*8(?!\d)|microsoft\s*access|\baccess\b|\bsql\b|ภาษา\s*sql", text)
+    # คำถามถึงชนิดข้อมูลเฉพาะของ Access มักไม่พิมพ์คำว่า Access ซ้ำ
+    # (เช่น "ชนิดข้อมูล Yes/No") จึงต้องพิจารณาชื่อชนิดข้อมูลด้วย
+    access = re.search(r"\b8\.2\b|บทที่\s*8(?!\d)|microsoft\s*access|\baccess\b|\bsql\b|ภาษา\s*sql|"
+                       r"\byes\s*/?\s*no\b|\bshort\s+text\b|\blong\s+text\b|\bautonumber\b|"
+                       r"\bole\s+object\b|\blookup\s+wizard\b|\bcurrency\b|\binteger\b|\bsingle\b|\bdouble\b", text)
     if general and not access:
         prefixes = ("1.2 ",)
     elif access and not general:
@@ -233,6 +237,111 @@ def _data_type_topics(query):
 def _special_topics(text):
     """คำถามพื้นฐานที่ชื่อหัวข้อตอบไม่ตรง จึงกำหนดหัวข้อไว้เอง"""
     text = text.lower().strip()
+    def topics(*prefixes):
+        return [e for e in ENTRIES if e["topic"].startswith(prefixes)]
+
+    # วลีเชิงความหมายที่มักไม่ตรงกับชื่อหัวข้อในสารบัญ
+    if re.search(r"ลำดับชั้น.{0,12}ข้อมูล|โครงสร้าง.{0,12}file\s*record\s*field", text):
+        return topics("1.3 ")
+    if re.search(r"\bdba\b|database\s+administrator|ผู้บริหารฐานข้อมูล|ผู้ดูแลระบบฐานข้อมูล", text):
+        return topics("12.4 ")
+    if re.search(r"ความปลอดภัย.{0,20}ฐานข้อมูล|รักษาความปลอดภัย.{0,20}ฐานข้อมูล|database\s+security", text):
+        return topics("12.4 ")
+    if re.search(r"conceptual\s+level|ระดับแนวคิด", text):
+        return topics("3.5 ")
+    if re.search(r"external\s+level|ระดับภายนอก", text):
+        return topics("3.4 ")
+    if re.search(r"internal\s+level|ระดับภายใน", text):
+        return topics("3.6 ")
+    if re.search(r"\bdbms\b|database\s+management\s+system|ระบบจัดการฐานข้อมูล", text):
+        return topics("2.3 ")
+    if re.search(r"\bdatabase\b|ฐานข้อมูล\s*\(database\)|ฐานข้อมูลคือ|ฐานข้อมูลหมายถึง", text) \
+            and not re.search(r"create\s+database|สร้างฐานข้อมูล", text):
+        return topics("2.2 ")
+    if re.search(r"\bddl\b", text) and re.search(r"\bdml\b", text):
+        return topics("8.1 ")
+    if re.search(r"ความหมายและองค์ประกอบการแปลง", text):
+        return topics("6.1 ")
+    if re.search(r"\ber\s*[- ]?diagram\b|แผนภาพอีอาร์|อีอาร์ไดอะแกรม", text) \
+            and re.search(r"แปลง|ขั้นตอน|transform|convert", text):
+        return topics("6.2 ")
+    if re.search(r"\brelation\b|รีเลชัน", text) \
+            and not re.search(r"\bjoin\b|แปลง|convert|transform|รีเลชันชิพ", text):
+        return topics("4.4 ")
+    if re.search(r"แอตทริบิวต์.{0,30}ทูเพิล|ทูเพิล.{0,30}แอตทริบิวต์|\battribute\b.{0,30}\btuple\b", text):
+        return topics("4.4 ")
+    if re.search(r"\bweak\s+(?:entity|entities)\b|เอ็นทิตี้แบบอ่อนแอ|เอนทิตี้แบบอ่อน", text):
+        if re.search(r"แปลง|convert|mapping", text):
+            return topics("6.4 ")
+        return topics("5.3 เอ็นทิตี้ · 2.")
+    if re.search(r"\bstrong\s+(?:entity|entities)\b|เอ็นทิตี้แบบปกติ|เอนทิตี้ปกติ", text):
+        if re.search(r"แปลง|convert|mapping", text):
+            return topics("6.4 ")
+        return topics("5.3 เอ็นทิตี้ · 1.")
+    if re.search(r"\brecursive\s+entities?\b|เอ็นทิตี้เรียกซ้ำ|เอนทิตี้เรียกซ้ำ", text):
+        return topics("5.3 เอ็นทิตี้ · 2.")
+    if re.search(r"entity\s+relationship|เอ็นทิตี้รีเลชันชิพ", text):
+        return topics("5.3 เอ็นทิตี้ · 3.")
+    if re.search(r"เอ็นทิตี้.{0,30}แอตทริบิวต์|เอนทิตี.{0,30}แอตทริบิวต์", text) \
+            and re.search(r"ต่างกัน|เปรียบเทียบ|กับ", text):
+        return topics("5.3 ", "5.4 ")
+    if re.search(r"\bentity\b|เอ็นทิตี้|เอนทิตี", text) and not re.search(r"entity\s+integrity|ความคงสภาพของเอ็นทิตี้", text):
+        if re.search(r"แปลง|convert|mapping", text):
+            return topics("6.4 ")
+        if re.search(r"คืออะไร|หมายถึง|what\s+is|ความหมาย", text) \
+                and not re.search(r"แอตทริบิวต์|attribute|ต่างกัน|เปรียบเทียบ", text):
+            return topics("5.3 ")
+    if re.search(r"แอตทริบิวต์หลายค่า|multivalued\s+attribute|multi.?valued\s+attribute", text) \
+            and re.search(r"แปลง|รีเลชัน|ตาราง|convert", text):
+        return topics("6.3 ")
+    if re.search(r"\b1\s*:\s*m\b|\b1\s*:\s*n\b|หนึ่งต่อกลุ่ม|one\s+to\s+many", text) \
+            and re.search(r"แปลง|ตาราง|รีเลชัน|convert", text):
+        return topics("6.6 ")
+    if re.search(r"\bm\s*:\s*n\b|\bm\s*:\s*m\b|กลุ่มต่อกลุ่ม|many\s+to\s+many", text) \
+            and re.search(r"แปลง|ตาราง|รีเลชัน|convert", text):
+        return topics("6.7 ")
+    if re.search(r"\b1\s*:\s*1\b|หนึ่งต่อหนึ่ง|one\s+to\s+one", text) \
+            and re.search(r"แปลง|ตาราง|รีเลชัน|convert", text):
+        return topics("6.5 ")
+    if re.search(r"วัตถุประสงค์|เป้าหมาย|ทำไมต้อง|ประโยชน์", text) \
+            and re.search(r"นอมอล|normaliz", text):
+        return topics("7.1 ")
+    if re.search(r"create\s+table|สร้างตาราง", text) and re.search(r"primary\s+key|foreign\s+key|คีย์หลัก|คีย์นอก", text):
+        return topics("8.3 ")
+    if re.search(r"not\s*null|unique", text):
+        return topics("8.3 ")
+    if re.search(r"\blike\b", text) and re.search(r"ค้น|ข้อความ|เงื่อนไข|ใช้", text):
+        return topics("9.6 ")
+    if re.search(r"แนวโน้ม.{0,30}(?:เทคโนโลยี|ฐานข้อมูล)|เทคโนโลยี.{0,30}ฐานข้อมูล", text):
+        return topics("บทที่ 11 ")
+    if re.search(r"ภัยคุกคาม|threat", text):
+        return topics("12.3 ")
+    if re.search(r"\bgrant\b|\brevoke\b|กำหนดสิทธิ์|กำหนดสิทธิ", text):
+        return topics("12.4 ")
+    if re.search(r"backup|recovery|สำรอง.{0,10}กู้คืน|กู้คืน.{0,10}สำรอง", text):
+        return topics("12.6 ")
+    if re.search(r"access\s+control|ควบคุมการเข้าถึง", text):
+        return topics("12.4 ")
+    if re.search(r"\bentity\s+integrity\b|ความคงสภาพของข้อมูล|data\s+integrity", text):
+        return topics("4.6 ")
+
+    # คำถามเชิงความหมายที่กล่าวถึงเนื้อหาในย่อหน้าหรือรายการย่อย
+    # แต่คำสำคัญไม่ได้ปรากฏในชื่อหัวข้อ (ต้องตรวจชุดข้อมูลก่อนตอบว่าไม่พบ)
+    if re.search(r"สารสนเทศ", text) and re.search(r"คุณสมบัติ|ลักษณะ|ที่ดี|ดีควร", text):
+        return [e for e in ENTRIES if e["topic"].startswith("1.1 ")][:1]
+    if re.search(r"ข้อมูล\s*(?:วันที่และเวลา|วันและเวลา)|date\s*time", text):
+        return [e for e in ENTRIES if e["topic"].startswith("1.2 ")][:1]
+    if re.search(r"ข้อมูล\s*(?:เสียง)|\bsound\b", text):
+        return [e for e in ENTRIES if e["topic"].startswith("1.2 ")][:1]
+    if (re.search(r"แยก\s*(?:แฟ้ม|ไฟล์)|แฟ้มข้อมูล.*แยก|เก็บ.*แยกจากกัน", text)
+            and re.search(r"รวบรวม|ล่าช้า|ช้า|เข้าถึง|แผนก", text)):
+        return [e for e in ENTRIES if e["topic"].startswith("1.6 ข้อจำกัดของวิธีแฟ้มข้อมูล · 1.")][:1]
+    if (re.search(r"แถว|ทูเพิล|เรคอร์ด|ระเบียน", text)
+            and re.search(r"ระบุ|ชี้|แยกแยะ|ไม่ซ้ำ|เอกลักษณ์", text)
+            and re.search(r"คีย์|ตาราง|ข้อมูล", text)):
+        return [e for e in ENTRIES if e["topic"].startswith("4.5 ประเภทของคีย์ · 3.")][:1]
+    if re.search(r"\bddl\b|data\s+definition\s+language|ภาษาสำหรับนิยามข้อมูล", text):
+        return [e for e in ENTRIES if e["topic"].startswith("8.1 ")][:1]
     if re.search(r"(?:what is sql\b|(?<![\w-])sql\s*(?:คืออะไร|ทำอะไรได้|ใช้ทำอะไร|มี\s*กี่\s*(?:ประเภท|แบบ)|"
                  r"แบ่ง(?:ได้|เป็น|ออกเป็น|ออกได้)?\s*(?:กี่\s*)?(?:ประเภท|แบบ)|ประเภท(?:อะไร)?บ้าง)"
                  r"|(?:ประเภท|ชนิด)\s*(?:คำสั่ง\s*)?sql\s*(?:มีอะไรบ้าง|อะไรบ้าง|มีกี่(?:ประเภท|แบบ))"
@@ -245,16 +354,35 @@ def _special_topics(text):
     return []
 
 
+_MISSING_BOOK_TOPICS = re.compile(
+    r"\bdata\s+warehouse\b|\bwarehouse\b|คลังข้อมูล|"
+    r"\bdistributed\s+database\b|ฐานข้อมูลแบบกระจาย|ฐานข้อมูลกระจาย|"
+    r"\bcloud\s+database\b|ฐานข้อมูลบนคลาวด์|ฐานข้อมูลบน cloud",
+    re.I,
+)
+
+
+def _explicitly_missing_topic(text):
+    """แนวคิดที่ตรวจแล้วว่าไม่มีคำอธิบายในชุดตำราปัจจุบัน ต้องไม่จับไปหัวข้อที่มีคำคล้ายกัน"""
+    return bool(_MISSING_BOOK_TOPICS.search(text))
+
+
 def search(query, limit=6, min_score=1.0):
     """Require topic evidence: a word in the body alone is not evidence the book explains it."""
     query = _split_glued(query)
     text = query.lower().strip()
+    if _explicitly_missing_topic(text) or (re.search(r"รหัสผ่าน|password", text)
+                                           and re.search(r"มหาวิทยาลัย|ระบบของฉัน|ของฉัน", text)):
+        return []
     exact = [entry for entry in ENTRIES if entry["topic"].lower() == text]
     if exact:
         return exact[:limit]
     data_types = _data_type_topics(text)
     if data_types:
         return data_types[:limit]
+    special = _special_topics(text)
+    if special:
+        return special[:limit]
     same = _heading_matches(query)
     if same:
         return same[:limit]
@@ -264,10 +392,6 @@ def search(query, limit=6, min_score=1.0):
         by_num = [e for e in ENTRIES if e["topic"].startswith(num.group(1) + " ")]
         if by_num:
             return by_num[:1]
-    special = _special_topics(text)
-    if special:
-        return special[:limit]
-
     if re.search(r"ภาคผนวก\s*[ค-ฮ]", text):
         return []   # ตำรามีแค่ภาคผนวก ก และ ข
     chapter = re.search(r"บทที่\s*(\d{1,2})|ภาคผนวก\s*([กข])", text)
@@ -1001,6 +1125,30 @@ def _plan(query):
     entries = search(query, limit=3)
     terms = _asked_terms(query)
     whole = [(e, None) for e in entries]
+    special = _special_topics(query)
+    # คำถามนิยาม “ฐานข้อมูล” ใช้ประโยคเปิดที่ให้ความหมายตรงจากหัวข้อ 2.2
+    # แทนย่อหน้าสรุปที่กล่าวถึงฐานข้อมูลภายหลัง
+    if special and len(special) == 1 and special[0]["topic"].startswith("2.2 ") \
+            and asks_meaning(query):
+        return [(special[0], [0])], True
+    # เปรียบเทียบ Entity กับ Attribute: ใช้นิยามตรงของแต่ละศัพท์ ไม่ใช้ย่อหน้าตัวอย่าง
+    # ที่เอ่ยถึงทั้งสองคำแต่ไม่ได้อธิบายความแตกต่าง
+    if re.search(r"เอ็นทิต|เอนทิต", query, re.I) and re.search(r"แอตทริบิวต์|attribute", query, re.I) \
+            and len(terms) > 1 and _COMPARE_RE.search(query):
+        expected = ("5.3 เอ็นทิตี้", "5.4 แอตทริบิวต์")
+        cores = []
+        for term, prefix in zip(terms, expected):
+            entry = next((e for e in ENTRIES if e["topic"].startswith(prefix)), None)
+            hit = find_definition(term, prefer=[entry]) if entry else None
+            if hit and entry and hit[0] is entry:
+                cores.append((entry, definition_block(entry, hit[1], extras=False)))
+        if len(cores) == 2:
+            return _merge_plan([_brief_core(core) for core in cores]), True
+    if special and asks_meaning(query) and len(terms) == 1:
+        # คำศัพท์บางคำมีคำอธิบายซ้ำอยู่ในบทการแปลง (เช่น Weak Entity);
+        # เมื่อคำถามเรียกศัพท์โดยตรง ให้ใช้หัวข้อที่นิยามศัพท์นั้น ไม่ใช่หัวข้อที่อธิบายขั้นตอนแปลง
+        e = special[0]
+        return [(e, definition_blocks(query, e) or [])], True
     if names_topic(query) or not terms:
         return whole, bool(entries) and names_topic(query)
     if _special_topics(query) and not asks_meaning(query):
@@ -1656,8 +1804,13 @@ def answer_from_dataset(history, selector=None, memory=None):
     if canned:
         return canned
 
+    if _explicitly_missing_topic(query) or (re.search(r"รหัสผ่าน|password", query, re.I)
+                                            and re.search(r"มหาวิทยาลัย|ระบบของฉัน|ของฉัน", query)):
+        return NO_DATA
+
     direct = _direct_plan(query)
-    if direct is not None:                     # ภาพ/ตาราง/หัวเรื่องย่อยที่ถามตรงชื่อ (รวมปุ่มต่อท้ายคำตอบก่อนหน้า)
+    special_override = _special_topics(query)
+    if direct is not None and not special_override:  # ภาพ/ตาราง/หัวเรื่องย่อยที่ถามตรงชื่อ (รวมปุ่มต่อท้ายคำตอบก่อนหน้า)
         return render_plan(direct) if direct else NO_DATA
 
     data_types = _data_type_topics(query)
