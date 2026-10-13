@@ -14,10 +14,27 @@ class DatasetTests(unittest.TestCase):
                                 ('DBMS คืออะไร', 'ระบบจัดการฐานข้อมูล'),
                                 ('ข้อมูลกับสารสนเทศต่างกันยังไง', 'สารสนเทศ'),
                                 ('what is sql', 'ความหมายของภาษา SQL'), ('ภาษา SQL คืออะไร', 'ความหมายของภาษา SQL'),
+                                ('SQL แบ่งได้กี่ประเภท', '8.1 ความหมายของภาษา SQL'),
+                                ('SQL แบ่งเป็นกี่ประเภท', '8.1 ความหมายของภาษา SQL'),
+                                ('SQL มีกี่ประเภท', '8.1 ความหมายของภาษา SQL'),
+                                ('ภาษา SQL แบ่งออกเป็นกี่ประเภท', '8.1 ความหมายของภาษา SQL'),
                                 ('ภาษา DDL คืออะไร', 'ความหมายของภาษา SQL'), ('7.5', 'นอมอลฟอร์มระดับที่ 1'),
                                 ('แบบฝึกหัดบทที่ 7', 'แบบฝึกหัดท้ายบท บทที่ 7')]:
             with self.subTest(query=query):
                 self.assertIn(expected, kb.search(query, 1)[0]['topic'])
+
+    def test_sql_type_question_does_not_match_key_types(self):
+        for query in ['SQL แบ่งได้กี่ประเภท', 'SQL แบ่งเป็นกี่ประเภท', 'SQL มีกี่ประเภท',
+                      'ภาษา SQL แบ่งออกเป็นกี่ประเภท', 'ประเภทคำสั่ง SQL มีอะไรบ้าง']:
+            with self.subTest(query=query):
+                found = kb.search(query, 3)
+                self.assertEqual(len(found), 1, [e['topic'] for e in found])
+                self.assertTrue(found[0]['topic'].startswith('8.1 ความหมายของภาษา SQL'))
+                answer = kb.answer_from_dataset([{'role': 'user', 'content': query}])
+                self.assertIn('Data Definition Language: DDL', answer)
+                self.assertIn('Data Manipulation Language: DML', answer)
+                self.assertIn('Data Control Language: DCL', answer)
+                self.assertNotIn('4.5 ประเภทของคีย์', answer)
 
     def test_unrelated(self):
         # รวมเรื่อง SQL ที่ตำราไม่ได้อธิบาย แม้บางคำจะโผล่ในเนื้อหา (เช่น Transaction ในตาราง)

@@ -189,6 +189,7 @@ PARAPHRASE_CASES = [
     dict(q="ถ้าอยากลบข้อมูลบางแถวออกจากตาราง", topic="8.8 "),
     dict(q="แก้ราคาสินค้าในตารางใช้คำสั่งอะไร", topic="8.7 ", ai=True),
     dict(q="SQL แบ่งเป็นกี่ประเภท", topic="8.1 ", has=["DDL", "DML", "DCL"]),
+    dict(q="SQL แบ่งได้กี่ประเภท", topic="8.1 ", has=["DDL", "DML", "DCL"], lacks=["4.5 ประเภทของคีย์"]),
     dict(q="คำสั่งที่ใช้สร้างตาราง", topic="8.3 ", has=["CREATE TABLE"]),
 ]
 
