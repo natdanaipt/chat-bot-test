@@ -219,8 +219,8 @@ def _data_type_topics(query):
     text = query.lower().strip()
     if not re.search(r"(?:ชนิด|ประเภท)\s*(?:ของ\s*)?ข้อมูล|ข้อมูล\s*(?:ชนิด|ประเภท)|data\s+types?", text):
         return []
-    general = re.search(r"\b1\.2\b|ทั่วไป|พื้นฐาน|เบื้องต้น", text)
-    access = re.search(r"\b8\.2\b|microsoft\s*access|\baccess\b|\bsql\b|ภาษา\s*sql", text)
+    general = re.search(r"\b1\.2\b|บทที่\s*1(?!\d)|ทั่วไป|พื้นฐาน|เบื้องต้น", text)
+    access = re.search(r"\b8\.2\b|บทที่\s*8(?!\d)|microsoft\s*access|\baccess\b|\bsql\b|ภาษา\s*sql", text)
     if general and not access:
         prefixes = ("1.2 ",)
     elif access and not general:
@@ -897,7 +897,8 @@ def _split_glued(text):
 def _asked_terms(query):
     """ศัพท์ที่ถาม: ตัดคำถาม/คำสุภาพทิ้ง ("สารสนเทศคืออะไรครับ" -> ["สารสนเทศ"], "COUNT ใช้ยังไง" -> ["COUNT"])
     ถามเทียบ ("ข้อมูลกับสารสนเทศต่างกันยังไง") ได้ศัพท์ทั้งสองฝั่ง"""
-    text = re.sub(r"\s*(ใช้ยังไง|ใช้อย่างไร|ใช้ทำอะไร|ใช้งานยังไง|ใช้งานอย่างไร"
+    text = re.sub(r"\s*(มีอะไรบ้าง|มีอะไร|ประกอบด้วยอะไรบ้าง|ประกอบด้วยอะไร|"
+                  r"ใช้ยังไง|ใช้อย่างไร|ใช้ทำอะไร|ใช้งานยังไง|ใช้งานอย่างไร"
                   r"|มีลักษณะ(?:เป็นอย่างไร|อย่างไร|ยังไง|อะไรบ้าง)?)", " ", _split_glued(query))   # "big data มีลักษณะยังไง" = ถามนิยามของ big data
     text = re.sub(r"^\s*(วิธีใช้งาน|วิธีใช้|การใช้งาน)\s*", " ", text)
     text = re.sub(r"^\s*(?:ความหมายของ|ความหมาย)\s*", " ", text)   # "ความหมายของข้อมูล" เฉพาะที่ต้นประโยค
